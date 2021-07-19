@@ -1,0 +1,22 @@
+function playBellSound()
+    print("Dooooooooom!")
+
+    self.AssetBundle.playTriggerEffect(0)
+end
+
+function onLoad()
+    local pos = self.getPosition()
+    params = {
+        click_function = "playBellSound",
+        function_owner = self,
+        position       = {0, -0.07, 0},
+        rotation       = {0, 180, 0},
+        width          = 128,
+        height         = 128,
+        font_size      = 340,
+        color          = {0, 0, 0},
+        font_color     = {1, 1, 1},
+        tooltip        = "Notify table of your impending doom!",
+    }
+    self.createButton(params)
+end

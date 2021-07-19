@@ -1,0 +1,494 @@
+--Announces when time runs out with a broadcast/chat message. (true or false)
+announceToggle = false
+
+--The colors the tool is, if fadeout mode is on (in r,g,b format, 0-1)
+fadeoutColor_start = {1, 1, 1}
+fadeoutColor_end = {0.1, 0.1, 0.1}
+
+
+--Runs whenever game is saved/autosaved
+function onSave()
+    local data_to_save = {
+        cr=countdownRemaining,
+        cg=countdownGoal,
+        rof=resetOnFlip,
+        pc=pauseCountdown,
+        ft=fadeToggle,
+    }
+    saved_data = JSON.encode(data_to_save)
+    --saved_data = "" --Remove -- at start + save to clear save data
+    return saved_data
+end
+
+--Runs when game is loaded
+function onLoad(saved_data)
+    --Loads the tracking for if the game has started yet
+    if saved_data ~= "" then
+        local loaded_data = JSON.decode(saved_data)
+        countdownRemaining = loaded_data.cr
+        countdownGoal = loaded_data.cg
+        resetOnFlip = loaded_data.rof
+        pauseCountdown = loaded_data.pc
+        fadeToggle = loaded_data.ft
+    else
+        countdownGoal = 10
+        countdownRemaining = countdownGoal
+        resetOnFlip = true
+        pauseCountdown = false
+        fadeToggle = true
+    end
+
+    --Establish color offset, how much needs to be added to fadeoutColor_start
+    fadeoutColor_offset = {
+        fadeoutColor_start[1]-fadeoutColor_end[1],
+        fadeoutColor_start[2]-fadeoutColor_end[2],
+        fadeoutColor_start[3]-fadeoutColor_end[3],
+    }
+
+    --Tracks if tool was upright based on its current memory
+    currentlyUp = true
+    if upsideDown() then currentlyUp = false end
+
+    createDisplayButtons()
+    createFunctionButtons()
+    createTimeInputs()
+end
+
+
+
+--Countdown Handling
+
+
+
+--Start Countdown
+function onCollisionEnter(collision_info)
+    function onCollisionEnter_routine()
+        --Avoids an error on startup
+        if currentlyUp == nil then return end
+        --Check if the tool's rotation match's its current memory of what it was
+        if upsideDown() and currentlyUp or not upsideDown() and not currentlyUp then
+            --Toggle which way is "up" for the current status
+            currentlyUp = not currentlyUp
+            --Kill any currently running coroutine and wait for it to be exectued
+            if countdownRunning then
+                killCountdown = true
+                while killCountdown do
+                    coroutine.yield(0)
+                end
+            end
+            --Determine countdown amount based off of countdown mode
+            if resetOnFlip then
+                countdownRemaining = countdownGoal
+            else
+                countdownRemaining = countdownGoal - countdownRemaining
+                if countdownRemaining == 0 then
+                    countdownRemaining = countdownGoal
+                end
+            end
+
+            --Initate countdown
+            startLuaCoroutine(self, "countdown_routine")
+        end
+        return 1
+    end
+    startLuaCoroutine(self, "onCollisionEnter_routine")
+end
+
+--Runs countdown
+function countdown_routine()
+    countdownRunning = true
+    local startTime = os.time()
+    rotateDisplayButtons()
+    while countdownRemaining > 0 do
+        --Perform countdown step for this frame of the game
+        local timeDelta = os.time() - startTime
+        countdownRemaining = countdownRemaining - timeDelta
+        updateDisplayButtons()
+        startTime = os.time()
+        --Perform color change step
+        if fadeToggle then
+            --fadeoutColor_start
+            --fadeoutColor_end
+            percentLeft = countdownRemaining / countdownGoal
+            local r = fadeoutColor_end[1] + (fadeoutColor_offset[1] * percentLeft)
+            local g = fadeoutColor_end[2] + (fadeoutColor_offset[2] * percentLeft)
+            local b = fadeoutColor_end[3] + (fadeoutColor_offset[3] * percentLeft)
+            self.setColorTint({r,g,b})
+        end
+
+        coroutine.yield(0)
+
+        --Stall routine until pause is removed or it is killed
+        while pauseCountdown do
+            startTime = os.time()
+            coroutine.yield(0)
+            if killCountdown then break end
+        end
+        --Kills coroutine on-demand
+        if killCountdown then
+            killCountdown = nil
+            countdownRunning = false
+            return 1
+        end
+    end
+
+    if announceToggle then broadcastToAll("Time's Up!", {1,1,1}) end
+    self.AssetBundle.playTriggerEffect(0)
+    countdownRunning = false
+    return 1
+end
+
+--Reset and Pause
+
+
+
+--Pauses countdown (countdown cannot continute until reset or unpaused)
+function click_pause()
+    pauseCountdown = not pauseCountdown
+    pauseCountdownToggle()
+end
+
+--Resets tool
+function click_reset()
+    if countdownRunning then
+        killCountdown = true
+    end
+    pauseCountdown = false
+    pauseCountdownToggle()
+    countdownRemaining = countdownGoal
+    updateDisplayButtons()
+end
+
+function pauseCountdownToggle()
+    if pauseCountdown then
+        for i=0,3 do
+            self.editButton({index=i, font_color={0.5,0.5,0.5}})
+        end
+    else
+        for i=0,3 do
+            self.editButton({index=i, font_color={1,1,1}})
+        end
+    end
+end
+
+
+
+
+
+--Settings buttons/inputs
+
+
+
+--toggles between hourglass mode and reset mode
+function click_toggleMode()
+    resetOnFlip = not resetOnFlip
+
+    --Mode toggle (hourglass or reset on flip)
+    local label = string.char(8987)
+    local tooltip = "[b]Hourglass Mode:[/b] Flipping timer over will 'reverse' the countdown."
+    if resetOnFlip then
+        label = string.char(8630)
+        tooltip = "[b]Reset Mode:[/b] Flipping timer over will restart the countdown."
+    end
+    self.editButton({index=8, label=label, tooltip=tooltip})
+    self.editButton({index=9, label=label, tooltip=tooltip})
+end
+
+--Toggles between announcing or not
+function click_fadeToggle()
+    fadeToggle = not fadeToggle
+
+    --Update buttons
+    local label = string.char(9788)
+    local tooltip = "[b]Fadeout Mode Disabled[/b]\nThe color of the timer will not change."
+    if fadeToggle then
+        label = string.char(9790)
+        tooltip = "[b]Fadeout Mode Enabled[/b]\nThe color of the timer will fade during countdown."
+    end
+    self.editButton({index=10, label=label, tooltip=tooltip})
+    self.editButton({index=11, label=label, tooltip=tooltip})
+end
+
+--Handles inputting of new time
+function input_time(_, color, inputString, stillEditing)
+    if not stillEditing then
+        local inputNum = tonumber(inputString)
+        if type(inputNum) == "number" and inputNum ~= countdownGoal then
+            countdownGoal = inputNum
+            click_reset()
+            printToAll(Player[color].steam_name .. " has updated the digital hourglass's time to "..countdownGoal.." seconds.", stringColorToRGB(color))
+        else
+            --Here in case I decide I want to broadcast an error for a blank timer
+        end
+        self.clearInputs()
+        createTimeInputs()
+    end
+end
+
+
+
+
+
+
+
+
+--Information finding and formatting
+
+
+
+--Determines if this object is upside down (using rotation values)
+function upsideDown()
+    if self.getRotationValue() == "Digital Hourglass " then
+        return true
+    else
+        return false
+    end
+end
+
+--Formats seconds into readable time format
+function formatSecondsForCountdown(seconds)
+    local seconds = math.ceil(seconds)
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds / 60) % 60)
+    local seconds = seconds % 60
+
+    s = ""
+    if hours > 0 then
+        minutes = string.format("%02d", minutes)
+        seconds = string.format("%02d", seconds)
+        s = hours .. ":" .. minutes .. ":" .. seconds
+    else
+        seconds = string.format("%02d", seconds)
+        s = minutes .. ":" .. seconds
+    end
+
+    return s
+end
+
+-- Get real string lenght per char table
+function getStringUnitWidth(str)
+    local len = 0
+    for i = 1, #str do
+        local c = str:sub(i,i)
+        if ref_charUnitWidth[c] then
+            len = len + ref_charUnitWidth[c]
+        else
+            len = len + ref_charUnitWidth.avg
+        end
+    end
+    return len
+end
+
+
+
+--Button creation
+
+
+
+--Places the time numbers on the 4 faces
+function createDisplayButtons()
+    --Format time for display
+    local cd_format = formatSecondsForCountdown(countdownRemaining)
+
+    --Adjust font size if needed
+    local font_size = 300
+    if getStringUnitWidth(cd_format) > 10000 then font_size = 200 end
+
+    --Adjust font color if needed
+    local font_color = {1,1,1}
+    if pauseCountdown then font_color = {0.5,0.5,0.5} end
+
+    --Adjust rotation for if it is flipped or not
+    local rot_offset = 0
+    if upsideDown() then rot_offset = 180 end
+
+    --Create 4 faces
+    self.createButton({
+        label=cd_format, click_function="n/a", function_owner=self,
+        position={0,0,0.85}, height=0, width=0, font_size=font_size,
+        font_color=font_color, rotation=ref_faceRotation[upsideDown()][1]
+    })
+    self.createButton({
+        label=cd_format, click_function="n/a", function_owner=self,
+        position={0,0,-0.85}, height=0, width=0, font_size=font_size,
+        font_color=font_color, rotation=ref_faceRotation[upsideDown()][2]
+    })
+    self.createButton({
+        label=cd_format, click_function="n/a", function_owner=self,
+        position={-0.85,0,0}, height=0, width=0, font_size=font_size,
+        font_color=font_color, rotation=ref_faceRotation[upsideDown()][3]
+    })
+    self.createButton({
+        label=cd_format, click_function="n/a", function_owner=self,
+        position={0.85,0,0}, height=0, width=0, font_size=font_size,
+        font_color=font_color, rotation=ref_faceRotation[upsideDown()][4]
+    })
+end
+
+
+
+function updateDisplayButtons()
+    --Format time for display
+    local cd_format = formatSecondsForCountdown(countdownRemaining)
+    local currentButtonData = self.getButtons()[1]
+    local cd_old = currentButtonData.label
+
+    if cd_format ~= cd_old then
+        --Adjust font size if needed
+        local font_size = 300
+        if getStringUnitWidth(cd_format) > 10000 then font_size = 200 end
+
+        --Edit 4 faces
+        for i=0, 3 do
+            self.editButton({
+                index=i,
+                label=cd_format,
+                font_size=font_size,
+                --rotation=ref_faceRotation[upsideDown()][i+1]
+            })
+        end
+    end
+end
+
+function rotateDisplayButtons()
+    for i=0, 3 do
+        self.editButton({
+            index=i,
+            rotation=ref_faceRotation[upsideDown()][i+1]
+        })
+    end
+end
+
+function createFunctionButtons()
+    --Pause
+    self.createButton({
+        label="PAUSE", click_function="click_pause", function_owner=self,
+        position={0,1,-0.42}, rotation={0,0,0}, height=500, width=740,
+        font_size=200, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1}
+    })
+    self.createButton({
+        label="PAUSE", click_function="click_pause", function_owner=self,
+        position={0,-1,-0.42}, rotation={180,180,0}, height=500, width=740,
+        font_size=200, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1}
+    })
+
+    --Reset
+    self.createButton({
+        label="RESET", click_function="click_reset", function_owner=self,
+        position={0,1,0.3}, rotation={0,0,0}, height=200, width=740,
+        font_size=140, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1}
+    })
+    self.createButton({
+        label="RESET", click_function="click_reset", function_owner=self,
+        position={0,-1,0.3}, rotation={180,180,0}, height=200, width=740,
+        font_size=140, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1}
+    })
+
+    --Mode toggle (hourglass or reset on flip)
+    local label = string.char(8987)
+    local tooltip = "[b]Hourglass Mode:[/b] Flipping timer over will 'reverse' the countdown."
+    if resetOnFlip then
+        label = string.char(8630)
+        tooltip = "[b]Reset Mode:[/b] Flipping timer over will restart the countdown."
+    end
+    self.createButton({
+        label=label, click_function="click_toggleMode", function_owner=self,
+        position={-0.5,1,0.72}, rotation={0,0,0}, height=160, width=160,
+        font_size=140, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1},
+        tooltip=tooltip
+    })
+    self.createButton({
+        label=label, click_function="click_toggleMode", function_owner=self,
+        position={0.5,-1,0.72}, rotation={180,180,0}, height=160, width=160,
+        font_size=140, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1},
+        tooltip=tooltip
+    })
+
+    --Announce toggle (broadcast or not broadcast when finished)
+    local label = string.char(9788)
+    local tooltip = "[b]Fadeout Mode Disabled[/b]\nThe color of the timer will not change."
+    if fadeToggle then
+        label = string.char(9790)
+        tooltip = "[b]Fadeout Mode Enabled[/b]\nThe color of the timer will fade during countdown."
+    end
+    self.createButton({
+        label=label, click_function="click_fadeToggle", function_owner=self,
+        position={0.5,1,0.72}, rotation={0,0,0}, height=160, width=160,
+        font_size=110, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1},
+        tooltip=tooltip
+    })
+    self.createButton({
+        label=label, click_function="click_fadeToggle", function_owner=self,
+        position={-0.5,-1,0.72}, rotation={180,180,0}, height=160, width=160,
+        font_size=110, font_color={0.5,0.5,0.5}, color={0.1,0.1,0.1},
+        tooltip=tooltip
+    })
+end
+
+--Inputs for entering time amount
+function createTimeInputs()
+    self.createInput({
+        label="TIME", input_function="input_time", function_owner=self,
+        position={0,1,0.72}, rotation={0,0,0}, alignment=3,
+        height=114, width=260, font_size=80, font_color={0.5,0.5,0.5},
+        color={0.1,0.1,0.1}, value=countdownGoal, validation=2, tab=1,
+        tooltip="# of seconds"
+    })
+    self.createInput({
+        label="TIME", input_function="input_time", function_owner=self,
+        position={0,-1,0.72}, rotation={0,0,180}, alignment=3,
+        height=114, width=260, font_size=80, font_color={0.5,0.5,0.5},
+        color={0.1,0.1,0.1}, value=countdownGoal, validation=2, tab=1,
+        tooltip="# of seconds"
+    })
+end
+
+
+
+
+
+
+
+--Data tables
+
+
+
+--Rotations for the 4 faces of the timer
+ref_faceRotation = {
+    [false] = {
+        {-90, 0, 0},
+        {90, 0, 180},
+        {0, 90, -90},
+        {0, -90, 90},
+    },
+    [true] = {
+        {-90, 0, 180},
+        {90, 0, 0},
+        {0, -90, -90},
+        {0, 90, 90},
+    }
+}
+
+-- Char width table by Indimeco
+ref_charUnitWidth = {
+    ['`'] = 2381, ['~'] = 2381, ['1'] = 1724, ['!'] = 1493, ['2'] = 2381,
+    ['@'] = 4348, ['3'] = 2381, ['#'] = 3030, ['4'] = 2564, ['$'] = 2381,
+    ['5'] = 2381, ['%'] = 3846, ['6'] = 2564, ['^'] = 2564, ['7'] = 2174,
+    ['&'] = 2777, ['8'] = 2564, ['*'] = 2174, ['9'] = 2564, ['('] = 1724,
+    ['0'] = 2564, [')'] = 1724, ['-'] = 1724, ['_'] = 2381, ['='] = 2381,
+    ['+'] = 2381, ['q'] = 2564, ['Q'] = 3226, ['w'] = 3704, ['W'] = 4167,
+    ['e'] = 2174, ['E'] = 2381, ['r'] = 1724, ['R'] = 2777, ['t'] = 1724,
+    ['T'] = 2381, ['y'] = 2564, ['Y'] = 2564, ['u'] = 2564, ['U'] = 3030,
+    ['i'] = 1282, ['I'] = 1282, ['o'] = 2381, ['O'] = 3226, ['p'] = 2564,
+    ['P'] = 2564, ['['] = 1724, ['{'] = 1724, [']'] = 1724, ['}'] = 1724,
+    ['|'] = 1493, ['\\'] = 1923, ['a'] = 2564, ['A'] = 2777, ['s'] = 1923,
+    ['S'] = 2381, ['d'] = 2564, ['D'] = 3030, ['f'] = 1724, ['F'] = 2381,
+    ['g'] = 2564, ['G'] = 2777, ['h'] = 2564, ['H'] = 3030, ['j'] = 1075,
+    ['J'] = 1282, ['k'] = 2381, ['K'] = 2777, ['l'] = 1282, ['L'] = 2174,
+    [';'] = 1282, [':'] = 1282, ['\''] = 855, ['"'] = 1724, ['z'] = 1923,
+    ['Z'] = 2564, ['x'] = 2381, ['X'] = 2777, ['c'] = 1923, ['C'] = 2564,
+    ['v'] = 2564, ['V'] = 2777, ['b'] = 2564, ['B'] = 2564, ['n'] = 2564,
+    ['N'] = 3226, ['m'] = 3846, ['M'] = 3846, [','] = 1282, ['<'] = 2174,
+    ['.'] = 1282, ['>'] = 2174, ['/'] = 1923, ['?'] = 2174, [' '] = 1282,
+    ['avg'] = 2500,
+}

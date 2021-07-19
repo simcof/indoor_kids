@@ -1,0 +1,453 @@
+--2186155897
+
+load_button_parameters = {
+  click_function = 'loadButtonClicked',
+  function_owner = nil,
+  label = 'Load Deck',
+  position = {0,0.5,0},
+  rotation = {0,180,0},
+  width = 500,
+  height = 500,
+  font_size = 100
+}
+
+amaranth_button_params = {
+  click_function = 'amaranthButtonClicked',
+  label="Load Amaranth",
+  position = {0,0.5,0},
+  rotation = {0,180,0},
+  scale = {0.3,1,1},
+  width=1650,
+  height=500,
+  font_size=200
+}
+
+lackey_button_params = {
+  click_function = 'lackeyButtonClicked',
+  label="Load Lackey",
+  position = {0,0.5,0},
+  rotation = {0,180,0},
+  scale = {0.3,1,1},
+  width=1650,
+  height=500,
+  font_size=200
+}
+
+vdb_button_params = {
+  click_function = 'vdbButtonClicked',
+  label="Load VDB",
+  position = {0,0.5,0},
+  rotation = {0,180,0},
+  scale = {0.3,1,1},
+  width=1650,
+  height=500,
+  font_size=200
+}
+
+
+
+GUID_lackey = "5326cf"
+GUID_amaranth = "28c399"
+GUID_vdb = "b8fc85"
+GUID_players_bag = "4bf7b2"
+unpacked = {false,false,false,false,false}
+
+url_krcg_all_decks = "https://api.krcg.org/deck" -- don't use this, it will crash TTS
+url_krcg_card = "https://api.krcg.org/card/" -- this is a get operator just need card name
+url_krcg_amaranth = "https://api.krcg.org/amaranth"
+url_krcg_vdb = "https://api.krcg.org/vdb"
+rulings = {}
+
+function onLoad()
+
+  init_shared_components()
+  init_players_components()
+
+end
+
+
+--[[ The onUpdate event is called once per frame. --]]
+function onUpdate()
+    --[[ print('onUpdate loop!') --]]
+end
+
+function init_shared_components()
+
+  players_bag = getObjectFromGUID(GUID_players_bag)
+  players_bag.shuffle()
+
+  amaranth_button = getObjectFromGUID(GUID_amaranth)
+  amaranth_button.createButton(amaranth_button_params)
+
+  lackey_button = getObjectFromGUID(GUID_lackey)
+  lackey_button.createButton(lackey_button_params)
+
+  vdb_button = getObjectFromGUID(GUID_vdb)
+  vdb_button.createButton(vdb_button_params)
+
+  --WebRequest.post(url_krcg_all_decks, {}, function(res) krcgAllDeckCallback(res) end)
+
+end
+
+function amaranthButtonClicked(obj, player_color)
+  local hide_these = {"deckInput_"..player_color, "load_"..player_color,
+    "layout_vdb_"..player_color}
+  local show_these = {"layout_amaranth_"..player_color}
+
+
+  for k, v in pairs(hide_these) do
+    UI.hide(v)
+  end
+
+  for k,v in pairs(show_these) do
+    UI.show(v)
+  end
+end
+
+function vdbButtonClicked(obj, player_color)
+  local hide_these = {"deckInput_"..player_color, "load_"..player_color,
+  "layout_amaranth_"..player_color}
+  local show_these = {"layout_vdb_"..player_color}
+
+
+  for k, v in pairs(hide_these) do
+    UI.hide(v)
+  end
+
+  for k,v in pairs(show_these) do
+    UI.show(v)
+  end
+end
+
+function krcgAllDeckCallback(res)
+  print("twda deck list loaded")
+  print(type(res))
+end
+
+
+function onNewDeckRequest(player, value, id)
+  UI.hide(id) -- this hides the calling UI button
+  local deck_text=""
+  if id=="load_red" then
+    UI.hide("deckInput_red")
+    deck_text=deck_text_red
+  end
+  if id=="load_white" then
+    UI.hide("deckInput_white")
+    deck_text=deck_text_white
+  end
+  if id=="load_purple" then
+    UI.hide("deckInput_purple")
+    deck_text=deck_text_purple
+  end
+  if id=="load_blue" then
+    UI.hide("deckInput_blue")
+    deck_text=deck_text_blue
+  end
+  if id=="load_green" then
+    UI.hide("deckInput_green")
+    deck_text=deck_text_green
+  end
+
+
+  local lines = split(deck_text,"\n\r")
+
+  local card_type="library"
+
+  -- walk through each line of the deck
+  -- processes the card name to prepare for Lackey image request
+  for i,line in pairs(lines) do
+    if line=="Crypt:" then
+      card_type="crypt"
+    else
+      local card_name_stripped = Strip_Control_and_Extended_Codes(line)
+      local card_qty = string.match(line, "^%d+")
+      local card_name_unprocessed = string.sub(card_name_stripped, string.len(card_qty)+1)
+      local card_name_processed = process_exceptions(
+        string.lower(
+          string.gsub(card_name_unprocessed, "[ %.''!(%-,):,]+","")
+          )
+        )
+      spawnCard(card_name_processed, card_qty, card_type, player, card_name_unprocessed)
+    end
+  end
+
+end
+
+function onNewAmaranthDeckRequest(player, value, id)
+  UI.hide("layout_amaranth_"..player.color)
+  local deckUrl = ""
+  if player.color=="White" then deckUrl = amaranthDeckUrl_White end
+  if player.color=="Blue" then deckUrl = amaranthDeckUrl_Blue end
+  if player.color=="Red" then deckUrl = amaranthDeckUrl_Red end
+  if player.color=="Purple" then deckUrl = amaranthDeckUrl_Purple end
+  if player.color=="Green" then deckUrl = amaranthDeckUrl_Green end
+
+  local amaranth_body = {
+    url = deckUrl
+  }
+
+  WebRequest.post(url_krcg_amaranth, amaranth_body, function(res) processAmaranthDeck(res, player) end)
+end
+
+function onNewVDBDeckRequest(player, value, id)
+  UI.hide("layout_vdb_"..player.color)
+  local deckUrl = ""
+  if player.color=="White" then deckUrl = vdbDeckUrl_White end
+  if player.color=="Blue" then deckUrl = vdbDeckUrl_Blue end
+  if player.color=="Red" then deckUrl = vdbDeckUrl_Red end
+  if player.color=="Purple" then deckUrl = vdbDeckUrl_Purple end
+  if player.color=="Green" then deckUrl = vdbDeckUrl_Green end
+
+  print(deckUrl)
+
+  local vdb_body = {
+    url = deckUrl
+  }
+
+  WebRequest.post(url_krcg_vdb, vdb_body, function(res) processVDBDeck(res, player) end)
+end
+
+
+function processAmaranthDeck(res, player)
+    local deck = JSON.decode(res.text)
+    for k,v in pairs(deck.crypt.cards) do
+        spawnCard(v.name, v.count, "crypt", player, v.name)
+    end
+
+    for k,v in pairs(deck.library.cards) do
+        for i, j in pairs(v.cards) do
+          spawnCard(j.name, j.count, "library", player, j.name)
+        end
+    end
+
+end
+
+function processVDBDeck(res, player)
+    local deck = JSON.decode(res.text)
+    for k,v in pairs(deck.crypt.cards) do
+        spawnCard(v.name, v.count, "crypt", player, v.name)
+    end
+
+    for k,v in pairs(deck.library.cards) do
+        for i, j in pairs(v.cards) do
+          spawnCard(j.name, j.count, "library", player, j.name)
+        end
+    end
+
+end
+
+
+function process_exceptions(card_name)
+  if card_name=="thadiuszhomage" then card_name="thadiuszho" end
+  if card_name=="sbastiengouletadv" then card_name="sebastiengouletadv" end
+  return card_name
+end
+
+
+function split(input, split)
+  local returnarr = {}
+  local i = 1
+  for str in string.gmatch(input, '([^' .. split .. ']+)') do
+    returnarr[i] = str
+    i = i + 1
+  end
+  return returnarr
+end
+
+function Strip_Control_and_Extended_Codes( str )
+    local s = ""
+    for i = 1, str:len() do
+	if str:byte(i) >= 32 and str:byte(i) <= 126 then
+  	    s = s .. str:sub(i,i)
+	end
+    end
+    return s
+end
+
+function spawnCard(name, qty, card_type, player, card_name_unprocessed)
+  local card_url = url_krcg_card .. urlencode(card_name_unprocessed)
+
+  WebRequest.get(card_url, function(res) processCard(res,card_name_unprocessed,qty,card_type, player) end)
+
+end
+
+function processCard(res, card_name_unprocessed, qty, card_type, player)
+  local card_back_lib="https://static.krcg.org/card/cardbacklibrary.jpg"
+  local card_back_crypt = "https://static.krcg.org/card/cardbackcrypt.jpg"
+  local card = JSON.decode(res.text)
+
+  local card_params = {}
+  local spawn_params = {}
+
+  if card~=nil then
+    card_params.face = card.url
+    card_params.back = card_type=="library" and card_back_lib or card_back_crypt
+    spawn_params = {
+      type = "Card",
+      scale             = {x=2, y=2, z=2},
+      sound             = false,
+      snap_to_grid      = true,
+      callback_function = function(obj) spawCardComplete(obj, card_params, card_name_unprocessed) end
+    }
+
+    if (card.rulings~= nil) then
+      local desc = listvalues(card.rulings.text)
+      rulings[card_name_unprocessed] = desc
+    else
+      rulings[card_name_unprocessed] = "No rulings for this card"
+    end
+
+    if player.color == "Red" then
+      spawn_params.position=card_type=="library" and {x=-33, y=3, z=-25} or {x=-28, y=3, z=-25}
+      spawn_params.rotation = {x=0,y=180,z=0}
+    end
+
+    if player.color == "White" then
+      spawn_params.position=card_type=="library" and {x=8, y=3, z=-25} or {x=13, y=3, z=-25}
+      spawn_params.rotation = {x=0,y=180,z=0}
+    end
+
+    if player.color == "Purple" then
+      spawn_params.position=card_type=="library" and {x=45, y=3, z=-14} or {x=45, y=3, z=-9}
+      spawn_params.rotation = {x=0,y=90,z=0}
+    end
+
+    if player.color == "Blue" then
+      spawn_params.position=card_type=="library" and {x=35, y=3, z=25} or {x=30, y=3, z=25}
+      spawn_params.rotation = {x=0,y=0,z=0}
+    end
+
+    if player.color == "Green" then
+      spawn_params.position=card_type=="library" and {x=-8, y=3, z=25} or {x=-13, y=3, z=25}
+      spawn_params.rotation = {x=0,y=0,z=0}
+    end
+
+    for i=1,qty do spawnObject(spawn_params) end
+
+  end
+
+end
+
+
+function spawCardComplete(obj, params, card_name_unprocessed)
+
+  obj.setCustomObject(params)
+  obj.setName(card_name_unprocessed)
+  obj.setDescription(rulings[card_name_unprocessed])
+
+
+  obj.flip()
+end
+
+function getRulingsComplete(res, card_name_unprocessed, qty, spawn_params)
+  local decoded_text = JSON.decode(res.text)
+
+  if (decoded_text.rulings~= nil) then
+    local desc = listvalues(decoded_text.rulings.text)
+    rulings[card_name_unprocessed] = desc
+  else
+    rulings[card_name_unprocessed] = "No rulings for this card"
+  end
+
+  for i=1,qty do spawnObject(spawn_params) end
+end
+
+function listvalues(s)
+    local t = { }
+    for k,v in ipairs(s) do
+        t[#t+1] = tostring(v)
+    end
+    return table.concat(t,"\n")
+end
+
+
+function init_players_components()
+
+    -- Bag or Deck returns {{string name, string description, string guid, int index, string lua_script, string lust_script_state}, ...}
+end
+
+function getPoolClicked(obj, player_color)
+
+    if player_color == "Red" then origin = {-17,-12,-33,-29} end
+    if player_color == "White" then origin = {32,37,-33,-29} end
+    if player_color == "Purple" then origin = {48,52,-16,-11} end
+    if player_color == "Blue" then origin = {32,37,29,33} end
+    if player_color == "Green" then origin = {-17,-12,29,33} end
+
+    for i = origin[1],origin[2],1
+    do
+      for j = origin[3],origin[4],1
+      do
+        blood_bag.takeObject({
+          position = {x=i,y=5,z=j}
+        })
+      end
+    end
+
+    -- some code to use for optional pool count zone
+    -- white_pool = getObjectFromGUID(GUID_pool_zones[1])
+    -- print(type(white_pool))
+    -- local white_pool_objects = white_pool.getObjects()
+    -- local pool_count = 0
+    -- for i,obj in pairs(white_pool_objects) do
+    --   pool_count = pool_count + 1
+    --
+    -- end
+    -- print(pool_count)
+end
+
+
+function lackeyButtonClicked(obj, player_color)
+
+  local show_these = {"deckInput_"..player_color, "load_"..player_color}
+  local hide_these = {"layout_amaranth_"..player_color}
+
+  for k, v in pairs(hide_these) do
+    UI.hide(v)
+  end
+
+  for k,v in pairs(show_these) do
+    UI.show(v)
+  end
+
+end
+
+
+
+-- add card names to newly spawned cards
+-- this allows players to search deck by name
+function onDeckTextChanged(player, value, id)
+  if id == "deckInput_white" then deck_text_white=value end
+  if id == "deckInput_red" then deck_text_red=value end
+  if id == "deckInput_purple" then deck_text_purple=value end
+  if id == "deckInput_blue" then deck_text_blue=value end
+  if id == "deckInput_green" then deck_text_green=value end
+end
+
+function onAmaranthUrlChanged(player, value, id)
+  if id == "amaranthDeckUrl_White" then amaranthDeckUrl_White=value end
+  if id == "amaranthDeckUrl_Green" then amaranthDeckUrl_Green=value end
+  if id == "amaranthDeckUrl_Blue" then amaranthDeckUrl_Blue=value end
+  if id == "amaranthDeckUrl_Red" then amaranthDeckUrl_Red=value end
+  if id == "amaranthDeckUrl_Purple" then amaranthDeckUrl_Purple=value end
+end
+
+function onVDBUrlChanged(player, value, id)
+  if id == "vdbDeckUrl_White" then vdbDeckUrl_White=value end
+  if id == "vdbDeckUrl_Green" then vdbDeckUrl_Green=value end
+  if id == "vdbDeckUrl_Blue" then vdbDeckUrl_Blue=value end
+  if id == "vdbDeckUrl_Red" then vdbDeckUrl_Red=value end
+  if id == "vdbDeckUrl_Purple" then vdbDeckUrl_Purple=value end
+end
+
+function urlencode(url)
+  if url == nil then
+    return
+  end
+  url = url:gsub("\n", "\r\n")
+  url = url:gsub("[ ]", "%%20")
+  url = url:gsub("[:]", "%%3A")
+
+  return url
+end

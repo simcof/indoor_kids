@@ -1,0 +1,165 @@
+<!-- <VerticalLayout height="100" width="500" spacing="10">
+  <InputField id="amaranthInput_white"
+    placeholder="Paste your Amaranth deck URL here"
+    lineType="SingleLine" />
+  <Button id="loadAmaranth_white">Load Amaranth Deck</Button>
+</VerticalLayout> -->
+
+
+
+<InputField id="deckInput_red"
+  width="500" height="500" lineType="MultiLineNewLine"
+  placeholder="Paste your lackeyccg deck here"
+  onValueChanged="onDeckTextChanged"
+  visibility="Red"
+  active="false"
+  >
+</InputField>
+<Button id="load_red"
+  visibility="Red"
+  active="false"
+  onClick="onNewDeckRequest"
+  height="20" width="200"
+  offsetXY="0 -280"
+  >Load Deck</Button>
+
+
+<InputField id="deckInput_White"
+  width="500" height="500" lineType="MultiLineNewLine"
+  placeholder="Paste your lackeyccg deck here"
+  onValueChanged="onDeckTextChanged"
+  visibility="White"
+  active="false"
+  >
+</InputField>
+<Button id="load_White"
+  visibility="White"
+  active="false"
+  onClick="onNewDeckRequest"
+  height="20" width="200"
+  offsetXY="0 -280"
+  >Load Deck</Button>
+
+
+<HorizontalLayout id="layout_amaranth_White" height="30" width="800" spacing="10" active="false"  >
+  <InputField id="amaranthDeckUrl_White"
+    placeholder="Paste your Amaranth deck url here"
+    onValueChanged="onAmaranthUrlChanged"
+    visibility="White"
+     />
+    <Button id="amaranthLoad_White"
+      visibility="White"
+      onClick="onNewAmaranthDeckRequest"
+      >Load Amaranth deck</Button>
+</HorizontalLayout>
+
+<HorizontalLayout id="layout_amaranth_Blue" height="30" width="800" spacing="10" active="false"  >
+  <InputField id="amaranthDeckUrl_Blue"
+    placeholder="Paste your Amaranth deck url here"
+    onValueChanged="onAmaranthUrlChanged"
+    visibility="Blue"
+     />
+    <Button id="amaranthLoad_Blue"
+      visibility="Blue"
+      onClick="onNewAmaranthDeckRequest"
+      >Load Amaranth deck</Button>
+</HorizontalLayout>
+
+<HorizontalLayout id="layout_amaranth_Purple" height="30" width="800" spacing="10" active="false"  >
+  <InputField id="amaranthDeckUrl_Purple"
+    placeholder="Paste your Amaranth deck url here"
+    onValueChanged="onAmaranthUrlChanged"
+    visibility="Purple"
+     />
+    <Button id="amaranthLoad_Purple"
+      visibility="Purple"
+      onClick="onNewAmaranthDeckRequest"
+      >Load Amaranth deck</Button>
+</HorizontalLayout>
+
+<HorizontalLayout id="layout_amaranth_Red" height="30" width="800" spacing="10" active="false"  >
+  <InputField id="amaranthDeckUrl_Red"
+    placeholder="Paste your Amaranth deck url here"
+    visibility="Red"
+    onValueChanged="onAmaranthUrlChanged"
+     />
+    <Button id="amaranthLoad_Red"
+      visibility="Red"
+      onClick="onNewAmaranthDeckRequest"
+      >Load Amaranth deck</Button>
+</HorizontalLayout>
+
+<HorizontalLayout id="layout_amaranth_Green" height="30" width="800" spacing="10" active="false"  >
+  <InputField id="amaranthDeckUrl_Green"
+    placeholder="Paste your Amaranth deck url here"
+    onValueChanged="onAmaranthUrlChanged"
+    visibility="Green"
+     />
+    <Button id="amaranthLoad_Green"
+      visibility="Green"
+      onClick="onNewAmaranthDeckRequest"
+      >Load Amaranth deck</Button>
+</HorizontalLayout>
+
+<HorizontalLayout id="layout_vdb_White" height="30" width="800" spacing="10" active="false"  >
+  <InputField id="vdbDeckUrl_White"
+    placeholder="Paste your VDB deck url here"
+    onValueChanged="onVDBUrlChanged"
+    visibility="White"
+     />
+    <Button id="vdbLoad_White"
+      visibility="White"
+      onClick="onNewVDBDeckRequest"
+      >Load VDB deck</Button>
+</HorizontalLayout>
+
+
+<InputField id="deckInput_purple"
+  width="500" height="500" lineType="MultiLineNewLine"
+  placeholder="Paste your lackeyccg deck here"
+  onValueChanged="onDeckTextChanged"
+  visibility="Purple"
+  active="false"
+  >
+</InputField>
+<Button id="load_purple"
+  visibility="Purple"
+  active="false"
+  onClick="onNewDeckRequest"
+  height="20" width="200"
+  offsetXY="0 -280"
+  >Load Deck</Button>
+
+
+<InputField id="deckInput_blue"
+  width="500" height="500" lineType="MultiLineNewLine"
+  placeholder="Paste your lackeyccg deck here"
+  onValueChanged="onDeckTextChanged"
+  visibility="Blue"
+  active="false"
+  >
+</InputField>
+<Button id="load_blue"
+  visibility="Blue"
+  active="false"
+  onClick="onNewDeckRequest"
+  height="20" width="200"
+  offsetXY="0 -280"
+  >Load Deck</Button>
+
+
+<InputField id="deckInput_green"
+  width="500" height="500" lineType="MultiLineNewLine"
+  placeholder="Paste your lackeyccg deck here"
+  onValueChanged="onDeckTextChanged"
+  visibility="Green"
+  active="false"
+  >
+</InputField>
+<Button id="load_green"
+  visibility="Green"
+  active="false"
+  onClick="onNewDeckRequest"
+  height="20" width="200"
+  offsetXY="0 -280"
+  >Load Deck</Button>
